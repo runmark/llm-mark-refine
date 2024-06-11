@@ -13,6 +13,7 @@ import dynamic from 'next/dynamic';
 import InitialQueries from '@/components/answer/InitialQueries';
 import { ArrowUp } from '@phosphor-icons/react/dist/ssr';
 import { runThread } from './serveraction';
+import { error } from 'console';
 // Main components 
 // Sidebar components
 // Function calling components
@@ -33,6 +34,21 @@ interface Message {
   places?: Place[];
   shoppings?: Shopping[];
   ticker?: string | undefined;
+}
+
+interface StreamMessage {
+  userMessage?: string;
+  followUp?: any;
+  images?: any;
+  videos?: any;
+  searchResults?: any;
+  conditionalFunctionCallUI?: any;
+  status?: string;
+  places?: Place[];
+  shoppings?: Shopping[];
+  ticker?: string;
+  llmResponse?: string;
+  llmResponseEnd?: boolean;
 }
 
 interface FollowUp {
@@ -112,7 +128,6 @@ export default function Home() {
   const handleFollowUpClick = useCallback(async (question: string) => {
     setCurrentLLMResponse('');
     await handleUserMessageSubmission(question);
-
   }, []);
   // 8. For the form submission, we need to set up a handler that will be called when the user submits the form
   // 9. Set up handler for when a submission is made, which will call the myAction function
@@ -125,7 +140,60 @@ export default function Home() {
   };
 
   const handleUserMessageSubmission = async (userMessage: string): Promise<void> => {
+    const newMessageId = Date.now();
+    const newMessage = {
+      id: newMessageId,
+      type: 'userMessage',
+      content: '',
+      userMessage: userMessage,
+      followUp: null,
+      images: [],
+      videos: [],
+      isStreaming: true,
+      searchResults: [],
+      status: '',
+      places: [],
+      shoppings: [],
+      ticker: undefined,
+    };
 
+    setMessages(prevMessages => [...prevMessages, newMessage]);
+
+    try {
+      let lastAppendedResponse = '';
+      const streamableValue = await myAction(userMessage);
+
+      for await (const message of readStreamableValue(streamableValue)) {
+        const typedMessage = message as StreamMessage;
+        setMessages((prevMessages) => {
+          const messagesCopy = [...prevMessages];
+          const messageIndex = messagesCopy.findIndex(msg => msg.id === newMessageId);
+
+          if (messageIndex !== -1) {
+            const currentMessage = messagesCopy[messageIndex];
+            currentMessage.status = typedMessage.status === 'rateLimitReached' ? 'rateLimitReached' : currentMessage.status;
+
+            if (typedMessage.llmResponse && typedMessage.llmResponse !== lastAppendedResponse) {
+              currentMessage.content += typedMessage.llmResponse;
+              lastAppendedResponse = typedMessage.llmResponse;
+            }
+
+            currentMessage.isStreaming = typedMessage.llmResponseEnd ? false : currentMessage.isStreaming;
+            currentMessage.searchResults = typedMessage.searchResults || currentMessage.searchResults;
+            currentMessage.images = typedMessage.images ? [...typedMessage.images] : currentMessage.images;
+
+          }
+
+          return messagesCopy;
+        });
+        let llmResponseString = '';
+        if (typedMessage.llmResponse) {
+          llmResponseString += typedMessage.llmResponse;
+        }
+      }
+    } catch (err) {
+      console.error("Error streaming data for user message: ", err);
+    }
   };
 
   return (

@@ -4,7 +4,6 @@ import { createStreamableValue } from "ai/rsc";
 
 
 
-
 export const runThread = async () => {
 
     const streamableStatus = createStreamableValue({});
@@ -16,15 +15,15 @@ export const runThread = async () => {
         streamableStatus.update({ content: "this is content" });
     }, 1000);
 
-    // await new Promise((resolve) => setTimeout(resolve, 2000));
+    await new Promise((resolve) => setTimeout(resolve, 2000));
 
     setTimeout(() => {
         streamableStatus.update({ id: 3 });
     }, 2000);
 
-    // await new Promise((resolve) => setTimeout(resolve, 3000));
+    await new Promise((resolve) => setTimeout(resolve, 3000));
 
-    // streamableStatus.done();
+    streamableStatus.done();
 
     return { status: streamableStatus.value };
 }
