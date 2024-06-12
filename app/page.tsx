@@ -14,6 +14,7 @@ import InitialQueries from '@/components/answer/InitialQueries';
 import { ArrowUp } from '@phosphor-icons/react/dist/ssr';
 import { runThread } from './serveraction';
 import { error } from 'console';
+import UserMessageComponent from '@/components/answer/UserMessageComponent';
 // Main components 
 // Sidebar components
 // Function calling components
@@ -34,6 +35,9 @@ interface Message {
   places?: Place[];
   shopping?: Shopping[];
   ticker?: string | undefined;
+
+  semanticCacheKey?: any;
+  cachedData?: string;
 }
 
 interface StreamMessage {
@@ -49,6 +53,9 @@ interface StreamMessage {
   ticker?: string;
   llmResponse?: string;
   llmResponseEnd?: boolean;
+
+  semanticCacheKey?: any;
+  cachedData?: string;
 }
 
 interface FollowUp {
@@ -164,6 +171,8 @@ export default function Home() {
   };
 
   const handleUserMessageSubmission = async (userMessage: string): Promise<void> => {
+    console.log('handlerUserMessageSubmission: ', userMessage);
+
     const newMessageId = Date.now();
     const newMessage = {
       id: newMessageId,
@@ -251,6 +260,31 @@ export default function Home() {
 
   return (
     <div>
+      {messages.length > 0 && (
+        <div className='flex flex-col'>
+          {messages.map((message, index) => (
+            <div key={`message-${index}`} className='flex flex-col md:flex-row'>
+
+              <div className="w-full md:w-3/4 md:pr-2">
+                {message.type === 'userMessage' && <UserMessageComponent key={`userMessagecomponent-${index}`} message={message.userMessage} />}
+                {/* {message.ticker && message.ticker.length > 0 && <FinancialChart key={`financialChart-${index}`} ticker={message.ticker} />}
+                {message.searchResults && <SearchResultsComponent key={`searchResults-${index}`} searchResults={message.searchResults} />}
+                {message.places && message.places.length > 0 && <MapComponent key={`map-${index}`} places={message.places} />}
+                <LLMResponseComponent llmResponse={message.content} currentLlmResponse={currentLLMResponse} index={index} semanticCacheKey={message.semanticCacheKey} key={`llm-response-${index}`} />
+                {message.followUp && (<div className="flex flex-col"> <FollowUpComponent key={`followUp-${index}`} followUp={message.followUp} handleFollowUpClick={handleFollowUpClick} /> </div>)} */}
+              </div>
+
+              {/* <div className="w-full md:w-1/4 md:pl-2">
+                {message.shopping && message.shopping.length > 0 && <ShoppingComponent key={`shopping-${index}`} shopping={message.shopping} />}
+                {message.videos && <VideosComponent key={`videos-${index}`} videos={message.videos} />}
+                {message.images && <ImagesComponent key={`images-${index}`} images={message.images} />}
+                {message.places && message.places.length > 0 && <MapDetails key={`map-${index}`} places={message.places} />}
+              </div> */}
+
+            </div>
+          ))}
+        </div>
+      )}
       <div>
         <div>
           {messages.length === 0 && (
