@@ -32,7 +32,7 @@ interface Message {
   conditionalFunctionCallUI?: any;
   status?: string;
   places?: Place[];
-  shoppings?: Shopping[];
+  shopping?: Shopping[];
   ticker?: string | undefined;
 }
 
@@ -45,7 +45,7 @@ interface StreamMessage {
   conditionalFunctionCallUI?: any;
   status?: string;
   places?: Place[];
-  shoppings?: Shopping[];
+  shopping?: Shopping[];
   ticker?: string;
   llmResponse?: string;
   llmResponseEnd?: boolean;
@@ -117,6 +117,7 @@ export default function Home() {
   // 4. Set up form submission handling
   const [inputValue, setInputValue] = useState('');
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const { formRef, onKeyDown } = useEnterSubmit();
 
   // 5. Set up state for the messages
   const [messages, setMessages] = useState<Message[]>([]);
@@ -129,7 +130,30 @@ export default function Home() {
     setCurrentLLMResponse('');
     await handleUserMessageSubmission(question);
   }, []);
+
   // 8. For the form submission, we need to set up a handler that will be called when the user submits the form
+  useEffect(() => {
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === '/') {
+
+        if (
+          e.target && ['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).nodeName)
+        ) {
+          return;
+        }
+
+        e.preventDefault();
+        e.stopPropagation();
+        inputRef?.current?.focus();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [inputRef]);
+
   // 9. Set up handler for when a submission is made, which will call the myAction function
   const handleFormSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -181,11 +205,40 @@ export default function Home() {
             currentMessage.isStreaming = typedMessage.llmResponseEnd ? false : currentMessage.isStreaming;
             currentMessage.searchResults = typedMessage.searchResults || currentMessage.searchResults;
             currentMessage.images = typedMessage.images ? [...typedMessage.images] : currentMessage.images;
+            currentMessage.videos = typedMessage.videos ? [...typedMessage.videos] : currentMessage.videos;
+            currentMessage.followUp = typedMessage.followUp || currentMessage.followUp;
+
+            // if (typedMessage.conditionalFunctionCallUI) {
+            //   const functionCall = typedMessage.conditionalFunctionCallUI;
+            //   if (functionCall.type === 'places') currentMessage.places = functionCall.places;
+            //   if (functionCall.type === 'shopping') currentMessage.shopping = functionCall.shopping;
+            //   if (functionCall.type === 'ticker') currentMessage.ticker = functionCall.data;
+            // }
+
+            if (typedMessage.conditionalFunctionCallUI) {
+              const functionCall = typedMessage.conditionalFunctionCallUI;
+              switch (functionCall.type) {
+                case 'places': {
+                  currentMessage.places = functionCall.places;
+                  break;
+                };
+                case 'shopping': {
+                  currentMessage.shopping = functionCall.shopping;
+                  break;
+                };
+                case 'ticker': {
+                  currentMessage.ticker = functionCall.data;
+                  break;
+                };
+              }
+            }
 
           }
 
+
           return messagesCopy;
         });
+
         let llmResponseString = '';
         if (typedMessage.llmResponse) {
           llmResponseString += typedMessage.llmResponse;
@@ -206,16 +259,20 @@ export default function Home() {
               handleFollowUpClick={handleFollowUpClick} />
           )}
           <form
+            ref={formRef}
             onSubmit={async (e: FormEvent<HTMLFormElement>) => {
               e.preventDefault();
               handleFormSubmit(e);
               setCurrentLLMResponse("");
+              if (window.innerWidth < 600) {
+                (e.target as HTMLFormElement)['message']?.blur();
+              }
             }}
           >
             <div className='relative flex flex-col w-full overflow-hidden max-h-60 grow dark:bg-slate-800 bg-gray-100 rounded-md border sm:px-2'>
               <Textarea
-                // ref={inputRef}
-                // onKeyDown={ }
+                ref={inputRef}
+                onKeyDown={onKeyDown}
                 placeholder='Send a message.'
                 className='w-full resize-none bg-transparent px-4 py-[1.3rem] focus-within:outline-none sm:text-sm dark:text-white text-black pr-[45px]'
                 rows={1}
